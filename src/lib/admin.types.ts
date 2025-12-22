@@ -92,6 +92,7 @@ export interface AdminConfig {
     cacheVersion: number; // CSS版本号（用于缓存控制）
   };
   OpenListConfig?: {
+    Enabled: boolean; // 是否启用私人影库功能
     URL: string; // OpenList 服务器地址
     Username: string; // 账号（用于登录获取Token）
     Password: string; // 密码（用于登录获取Token）

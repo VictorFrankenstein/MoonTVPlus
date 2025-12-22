@@ -88,8 +88,9 @@ export default async function RootLayout({
     fluidSearch = config.SiteConfig.FluidSearch;
     enableComments = config.SiteConfig.EnableComments;
     tmdbApiKey = config.SiteConfig.TMDBApiKey || '';
-    // 检查是否配置了 OpenList
+    // 检查是否启用了 OpenList 功能
     openListEnabled = !!(
+      config.OpenListConfig?.Enabled &&
       config.OpenListConfig?.URL &&
       config.OpenListConfig?.Username &&
       config.OpenListConfig?.Password

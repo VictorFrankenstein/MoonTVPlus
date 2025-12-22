@@ -292,8 +292,14 @@ async function refreshOpenList() {
     const config = await getConfig();
     const openListConfig = config.OpenListConfig;
 
+    // 检查功能是否启用
+    if (!openListConfig || !openListConfig.Enabled) {
+      console.log('跳过 OpenList 扫描：功能未启用');
+      return;
+    }
+
     // 检查是否配置了 OpenList 和定时扫描
-    if (!openListConfig || !openListConfig.URL || !openListConfig.Username || !openListConfig.Password) {
+    if (!openListConfig.URL || !openListConfig.Username || !openListConfig.Password) {
       console.log('跳过 OpenList 扫描：未配置');
       return;
     }

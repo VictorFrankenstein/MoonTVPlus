@@ -2540,6 +2540,7 @@ const OpenListConfigComponent = ({
 }) => {
   const { alertModal, showAlert, hideAlert } = useAlertModal();
   const { isLoading, withLoading } = useLoadingState();
+  const [enabled, setEnabled] = useState(false);
   const [url, setUrl] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -2557,6 +2558,7 @@ const OpenListConfigComponent = ({
 
   useEffect(() => {
     if (config?.OpenListConfig) {
+      setEnabled(config.OpenListConfig.Enabled || false);
       setUrl(config.OpenListConfig.URL || '');
       setUsername(config.OpenListConfig.Username || '');
       setPassword(config.OpenListConfig.Password || '');
@@ -2595,6 +2597,7 @@ const OpenListConfigComponent = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'save',
+            Enabled: enabled,
             URL: url,
             Username: username,
             Password: password,
@@ -2719,6 +2722,57 @@ const OpenListConfigComponent = ({
 
   return (
     <div className='space-y-6'>
+      {/* 使用说明 */}
+      <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4'>
+        <div className='flex items-center gap-2 mb-2'>
+          <svg
+            className='w-5 h-5 text-blue-600 dark:text-blue-400'
+            fill='none'
+            stroke='currentColor'
+            viewBox='0 0 24 24'
+          >
+            <path
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              strokeWidth={2}
+              d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+            />
+          </svg>
+          <span className='text-sm font-medium text-blue-800 dark:text-blue-300'>
+            使用说明
+          </span>
+        </div>
+        <div className='text-sm text-blue-700 dark:text-blue-400 space-y-1'>
+          <p>• 私人影库功能需要配合 OpenList 使用，用于管理和播放您自己的视频文件</p>
+          <p>• OpenList 是一个开源的网盘聚合程序，支持多种存储后端（本地、阿里云盘、OneDrive 等）</p>
+          <p>• 配置后，系统会自动扫描指定目录下的视频文件夹，并通过 TMDB 匹配元数据信息</p>
+          <p>• 定时扫描间隔设置为 0 表示关闭自动扫描，最低间隔为 60 分钟</p>
+          <p>• 视频文件夹名称为影片名称，精准命名可以提高 TMDB 匹配准确率</p>
+
+        </div>
+      </div>
+
+      {/* 功能开关 */}
+      <div className='flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'>
+        <div>
+          <h3 className='text-sm font-medium text-gray-900 dark:text-gray-100'>
+            启用私人影库功能
+          </h3>
+          <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+            关闭后将不显示私人影库入口，也不会执行定时扫描
+          </p>
+        </div>
+        <label className='relative inline-flex items-center cursor-pointer'>
+          <input
+            type='checkbox'
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className='sr-only peer'
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+
       {/* 配置表单 */}
       <div className='space-y-4'>
         <div>
@@ -2729,8 +2783,9 @@ const OpenListConfigComponent = ({
             type='text'
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            disabled={!enabled}
             placeholder='https://your-openlist-server.com'
-            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed'
           />
         </div>
 
@@ -2743,8 +2798,9 @@ const OpenListConfigComponent = ({
               type='text'
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={!enabled}
               placeholder='admin'
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed'
             />
           </div>
           <div>
@@ -2755,8 +2811,9 @@ const OpenListConfigComponent = ({
               type='password'
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={!enabled}
               placeholder='password'
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed'
             />
           </div>
         </div>
@@ -2769,8 +2826,9 @@ const OpenListConfigComponent = ({
             type='text'
             value={rootPath}
             onChange={(e) => setRootPath(e.target.value)}
+            disabled={!enabled}
             placeholder='/'
-            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed'
           />
           <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
             OpenList 中的视频文件夹路径，默认为根目录 /
@@ -2785,9 +2843,10 @@ const OpenListConfigComponent = ({
             type='number'
             value={scanInterval}
             onChange={(e) => setScanInterval(parseInt(e.target.value) || 0)}
+            disabled={!enabled}
             placeholder='0'
             min='0'
-            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed'
           />
           <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
             设置为 0 关闭定时扫描，最低 60 分钟
@@ -2806,7 +2865,7 @@ const OpenListConfigComponent = ({
       </div>
 
       {/* 视频列表区域 */}
-      {config?.OpenListConfig?.URL && config?.OpenListConfig?.Username && config?.OpenListConfig?.Password && (
+      {enabled && config?.OpenListConfig?.URL && config?.OpenListConfig?.Username && config?.OpenListConfig?.Password && (
         <div className='space-y-4'>
           <div className='flex items-center justify-between'>
             <div>
@@ -7675,18 +7734,6 @@ function AdminPageClient() {
               <VideoSourceConfig config={config} refreshConfig={fetchConfig} />
             </CollapsibleTab>
 
-            {/* 私人影库配置标签 */}
-            <CollapsibleTab
-              title='私人影库'
-              icon={
-                <FolderOpen size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.openListConfig}
-              onToggle={() => toggleTab('openListConfig')}
-            >
-              <OpenListConfigComponent config={config} refreshConfig={fetchConfig} />
-            </CollapsibleTab>
-
             {/* 直播源配置标签 */}
             <CollapsibleTab
               title='直播源配置'
@@ -7697,6 +7744,18 @@ function AdminPageClient() {
               onToggle={() => toggleTab('liveSource')}
             >
               <LiveSourceConfig config={config} refreshConfig={fetchConfig} />
+            </CollapsibleTab>
+
+            {/* 私人影库配置标签 */}
+            <CollapsibleTab
+              title='私人影库'
+              icon={
+                <FolderOpen size={20} className='text-gray-600 dark:text-gray-400' />
+              }
+              isExpanded={expandedTabs.openListConfig}
+              onToggle={() => toggleTab('openListConfig')}
+            >
+              <OpenListConfigComponent config={config} refreshConfig={fetchConfig} />
             </CollapsibleTab>
 
             {/* 分类配置标签 */}

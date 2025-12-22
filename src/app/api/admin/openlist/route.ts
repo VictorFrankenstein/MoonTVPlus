@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { action, URL, Username, Password, RootPath, ScanInterval } = body;
+    const { action, Enabled, URL, Username, Password, RootPath, ScanInterval } = body;
 
     const authInfo = getAuthInfoFromCookie(request);
     if (!authInfo || !authInfo.username) {
@@ -48,7 +48,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'save') {
-      // 保存配置
+      // 如果功能未启用，允许保存空配置
+      if (!Enabled) {
+        adminConfig.OpenListConfig = {
+          Enabled: false,
+          URL: URL || '',
+          Username: Username || '',
+          Password: Password || '',
+          RootPath: RootPath || '/',
+          LastRefreshTime: adminConfig.OpenListConfig?.LastRefreshTime,
+          ResourceCount: adminConfig.OpenListConfig?.ResourceCount,
+          ScanInterval: 0,
+        };
+
+        await db.saveAdminConfig(adminConfig);
+
+        return NextResponse.json({
+          success: true,
+          message: '保存成功',
+        });
+      }
+
+      // 功能启用时，验证必填字段
       if (!URL || !Username || !Password) {
         return NextResponse.json(
           { error: '请提供 URL、账号和密码' },
@@ -79,6 +100,7 @@ export async function POST(request: NextRequest) {
       }
 
       adminConfig.OpenListConfig = {
+        Enabled: true,
         URL,
         Username,
         Password,
