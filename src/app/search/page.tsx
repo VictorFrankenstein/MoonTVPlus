@@ -292,19 +292,23 @@ function SearchPageClient() {
       { label: '全部来源', value: 'all' },
       ...Array.from(sourcesSet.entries())
         .sort((a, b) => {
-          // 优先排序：emby 和 openlist 置于最前
-          const prioritySources = ['emby', 'openlist'];
-          const aIsPriority = prioritySources.includes(a[0]);
-          const bIsPriority = prioritySources.includes(b[0]);
+          // 判断是否为 openlist
+          const aIsOpenList = a[0] === 'openlist';
+          const bIsOpenList = b[0] === 'openlist';
 
-          if (aIsPriority && !bIsPriority) return -1;
-          if (!aIsPriority && bIsPriority) return 1;
-          if (aIsPriority && bIsPriority) {
-            // 两者都是优先源，按照 prioritySources 数组顺序排列
-            return prioritySources.indexOf(a[0]) - prioritySources.indexOf(b[0]);
+          // 判断是否为 emby 源（包括 emby 和 emby:xxx 格式）
+          const aIsEmby = a[0] === 'emby' || a[0].startsWith('emby:');
+          const bIsEmby = b[0] === 'emby' || b[0].startsWith('emby:');
+
+          // 优先级：OpenList(100) > Emby(90) > 其他(0)
+          const aPriority = aIsOpenList ? 100 : aIsEmby ? 90 : 0;
+          const bPriority = bIsOpenList ? 100 : bIsEmby ? 90 : 0;
+
+          if (aPriority !== bPriority) {
+            return bPriority - aPriority; // 降序排列
           }
 
-          // 其他来源按字母顺序排列
+          // 同优先级内按名称排序
           return a[1].localeCompare(b[1]);
         })
         .map(([value, label]) => ({ label, value })),

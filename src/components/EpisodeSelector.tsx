@@ -897,7 +897,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                             {/* 重新测试按钮 */}
                             {(() => {
                               // 私人影库和 Emby 不显示重新测试按钮
-                              if (source.source === 'openlist' || source.source === 'emby') {
+                              if (source.source === 'openlist' || source.source === 'emby' || source.source.startsWith('emby_')) {
                                 return null;
                               }
 

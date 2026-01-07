@@ -126,11 +126,11 @@ export default async function RootLayout({
       config.OpenListConfig?.Username &&
       config.OpenListConfig?.Password
     );
-    // 检查是否启用了 Emby 功能
+    // 检查是否启用了 Emby 功能（支持多源）
     embyEnabled = !!(
-      config.EmbyConfig?.Enabled &&
-      config.EmbyConfig?.ServerURL &&
-      (config.EmbyConfig?.ApiKey || (config.EmbyConfig?.Username && config.EmbyConfig?.Password))
+      config.EmbyConfig?.Sources &&
+      config.EmbyConfig.Sources.length > 0 &&
+      config.EmbyConfig.Sources.some(s => s.enabled && s.ServerURL)
     );
   }
 

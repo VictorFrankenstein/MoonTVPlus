@@ -41,11 +41,11 @@ export async function GET(request: NextRequest) {
     config.OpenListConfig?.Password
   );
 
-  // 检查是否配置了 Emby
+  // 检查是否配置了 Emby（支持多源）
   const hasEmby = !!(
-    config.EmbyConfig?.Enabled &&
-    config.EmbyConfig?.ServerURL &&
-    config.EmbyConfig?.UserId
+    config.EmbyConfig?.Sources &&
+    config.EmbyConfig.Sources.length > 0 &&
+    config.EmbyConfig.Sources.some(s => s.enabled && s.ServerURL)
   );
 
   // 共享状态
@@ -73,11 +73,23 @@ export async function GET(request: NextRequest) {
         }
       };
 
+      // 获取 Emby 源数量
+      let embySourcesCount = 0;
+      if (hasEmby) {
+        try {
+          const { embyManager } = await import('@/lib/emby-manager');
+          const embySourcesMap = await embyManager.getAllClients();
+          embySourcesCount = embySourcesMap.size;
+        } catch (error) {
+          console.error('[Search WS] 获取 Emby 源数量失败:', error);
+        }
+      }
+
       // 发送开始事件
       const startEvent = `data: ${JSON.stringify({
         type: 'start',
         query,
-        totalSources: apiSites.length + (hasOpenList ? 1 : 0) + (hasEmby ? 1 : 0),
+        totalSources: apiSites.length + (hasOpenList ? 1 : 0) + embySourcesCount,
         timestamp: Date.now()
       })}\n\n`;
 
@@ -89,75 +101,105 @@ export async function GET(request: NextRequest) {
       let completedSources = 0;
       const allResults: any[] = [];
 
-      // 搜索 Emby（如果配置了）- 异步带超时
+      // 搜索 Emby（如果配置了）- 异步带超时，支持多源
       if (hasEmby) {
-        Promise.race([
-          (async () => {
-            try {
-              const { EmbyClient } = await import('@/lib/emby.client');
-              const client = new EmbyClient(config.EmbyConfig!);
-              const searchResult = await client.getItems({
-                searchTerm: query,
-                IncludeItemTypes: 'Movie,Series',
-                Recursive: true,
-                Fields: 'Overview,ProductionYear',
-                Limit: 50,
-              });
-              return searchResult.Items.map((item) => ({
-                id: item.Id,
-                source: 'emby',
-                source_name: 'Emby',
-                title: item.Name,
-                poster: client.getImageUrl(item.Id, 'Primary'),
-                episodes: [],
-                episodes_titles: [],
-                year: item.ProductionYear?.toString() || '',
-                desc: item.Overview || '',
-                type_name: item.Type === 'Movie' ? '电影' : '电视剧',
-                douban_id: 0,
-              }));
-            } catch (error) {
-              console.error('[Search WS] 搜索 Emby 失败:', error);
-              return [];
-            }
-          })(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Emby timeout')), 20000)
-          ),
-        ])
-          .then((embyResults: any) => {
-            completedSources++;
-            if (!streamClosed) {
-              const sourceEvent = `data: ${JSON.stringify({
-                type: 'source_result',
-                source: 'emby',
-                sourceName: 'Emby',
-                results: embyResults,
-                timestamp: Date.now()
-              })}\n\n`;
-              if (!safeEnqueue(encoder.encode(sourceEvent))) {
-                streamClosed = true;
-                return;
+        (async () => {
+          let embyCompletedCount = 0;
+          try {
+            const { embyManager } = await import('@/lib/emby-manager');
+            const embySourcesMap = await embyManager.getAllClients();
+            const embySources = Array.from(embySourcesMap.values());
+
+            // 为每个 Emby 源并发搜索，并单独发送结果
+            const embySearchPromises = embySources.map(async ({ client, config: embyConfig }) => {
+              try {
+                const searchResult = await client.getItems({
+                  searchTerm: query,
+                  IncludeItemTypes: 'Movie,Series',
+                  Recursive: true,
+                  Fields: 'Overview,ProductionYear',
+                  Limit: 50,
+                });
+
+                const sourceValue = embySources.length === 1 ? 'emby' : `emby_${embyConfig.key}`;
+                const sourceName = embySources.length === 1 ? 'Emby' : embyConfig.name;
+
+                const results = searchResult.Items.map((item) => ({
+                  id: item.Id,
+                  source: sourceValue,
+                  source_name: sourceName,
+                  title: item.Name,
+                  poster: client.getImageUrl(item.Id, 'Primary'),
+                  episodes: [],
+                  episodes_titles: [],
+                  year: item.ProductionYear?.toString() || '',
+                  desc: item.Overview || '',
+                  type_name: item.Type === 'Movie' ? '电影' : '电视剧',
+                  douban_id: 0,
+                }));
+
+                // 单独发送每个源的结果
+                embyCompletedCount++;
+                completedSources++;
+                if (!streamClosed) {
+                  const sourceEvent = `data: ${JSON.stringify({
+                    type: 'source_result',
+                    source: sourceValue,
+                    sourceName: sourceName,
+                    results: results,
+                    timestamp: Date.now()
+                  })}\n\n`;
+                  if (safeEnqueue(encoder.encode(sourceEvent))) {
+                    if (results.length > 0) {
+                      allResults.push(...results);
+                    }
+                  } else {
+                    streamClosed = true;
+                  }
+                }
+
+                return results;
+              } catch (error) {
+                console.error(`[Search WS] 搜索 ${embyConfig.name} 失败:`, error);
+                embyCompletedCount++;
+                completedSources++;
+                // 发送空结果
+                if (!streamClosed) {
+                  const sourceValue = embySources.length === 1 ? 'emby' : `emby_${embyConfig.key}`;
+                  const sourceName = embySources.length === 1 ? 'Emby' : embyConfig.name;
+                  const sourceEvent = `data: ${JSON.stringify({
+                    type: 'source_result',
+                    source: sourceValue,
+                    sourceName: sourceName,
+                    results: [],
+                    timestamp: Date.now()
+                  })}\n\n`;
+                  safeEnqueue(encoder.encode(sourceEvent));
+                }
+                return [];
               }
-              if (embyResults.length > 0) {
-                allResults.push(...embyResults);
+            });
+
+            await Promise.all(embySearchPromises);
+          } catch (error) {
+            console.error('[Search WS] 搜索 Emby 整体失败:', error);
+            // 如果整个 emby 搜索失败，需要补齐未完成的源
+            const remainingSources = embySourcesCount - embyCompletedCount;
+            for (let i = 0; i < remainingSources; i++) {
+              completedSources++;
+              if (!streamClosed) {
+                const sourceEvent = `data: ${JSON.stringify({
+                  type: 'source_result',
+                  source: 'emby',
+                  sourceName: 'Emby',
+                  results: [],
+                  timestamp: Date.now()
+                })}\n\n`;
+                safeEnqueue(encoder.encode(sourceEvent));
               }
             }
-          })
-          .catch((error) => {
-            console.error('[Search WS] 搜索 Emby 超时:', error);
-            completedSources++;
-            if (!streamClosed) {
-              const sourceEvent = `data: ${JSON.stringify({
-                type: 'source_result',
-                source: 'emby',
-                sourceName: 'Emby',
-                results: [],
-                timestamp: Date.now()
-              })}\n\n`;
-              safeEnqueue(encoder.encode(sourceEvent));
-            }
-          });
+          }
+        })();
       }
 
       // 搜索 OpenList（如果配置了）- 异步带超时
@@ -315,7 +357,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 检查是否所有源都已完成
-        if (completedSources === apiSites.length + (hasOpenList ? 1 : 0) + (hasEmby ? 1 : 0)) {
+        if (completedSources === apiSites.length + (hasOpenList ? 1 : 0) + embySourcesCount) {
           if (!streamClosed) {
             // 发送最终完成事件
             const completeEvent = `data: ${JSON.stringify({

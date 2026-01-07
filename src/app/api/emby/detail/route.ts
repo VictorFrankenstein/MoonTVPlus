@@ -2,38 +2,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getConfig } from '@/lib/config';
-import { EmbyClient } from '@/lib/emby.client';
+import { embyManager } from '@/lib/emby-manager';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const itemId = searchParams.get('id');
+  const embyKey = searchParams.get('embyKey') || undefined;
 
   if (!itemId) {
     return NextResponse.json({ error: '缺少媒体ID' }, { status: 400 });
   }
 
   try {
-    const config = await getConfig();
-    const embyConfig = config.EmbyConfig;
-
-    if (!embyConfig?.Enabled || !embyConfig.ServerURL) {
-      return NextResponse.json({ error: 'Emby 未配置或未启用' }, { status: 400 });
-    }
-
-    const client = new EmbyClient(embyConfig);
-
-    // 如果没有 UserId，需要先认证
-    if (!embyConfig.UserId && embyConfig.Username && embyConfig.Password) {
-      const authResult = await client.authenticate(embyConfig.Username, embyConfig.Password);
-      embyConfig.UserId = authResult.User.Id;
-    }
-
-    if (!embyConfig.UserId) {
-      return NextResponse.json({ error: 'Emby 认证失败' }, { status: 401 });
-    }
+    // 获取Emby客户端
+    const client = await embyManager.getClient(embyKey);
 
     // 获取媒体详情
     const item = await client.getItem(itemId);

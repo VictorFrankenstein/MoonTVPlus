@@ -456,11 +456,19 @@ function PlayPageClient() {
   const [doubanCardSubtitle, setDoubanCardSubtitle] = useState<string>('');
   const [doubanAka, setDoubanAka] = useState<string[]>([]);
   const [doubanYear, setDoubanYear] = useState<string>(''); // 从 pubdate 提取的年份
-  // 当前源和ID
-  const [currentSource, setCurrentSource] = useState(
-    searchParams.get('source') || ''
-  );
+
+  // 当前源和ID - source 直接存储完整格式（如 'emby_wumei' 或 'emby'）
+  const [currentSource, setCurrentSource] = useState(searchParams.get('source') || '');
   const [currentId, setCurrentId] = useState(searchParams.get('id') || '');
+
+  // 解析 source 参数以获取 embyKey（仅用于 API 调用）
+  const parseSourceForApi = (source: string): { source: string; embyKey?: string } => {
+    if (source.startsWith('emby_')) {
+      const key = source.substring(5);
+      return { source: 'emby', embyKey: key };
+    }
+    return { source };
+  };
 
   // 搜索所需信息
   const [searchTitle] = useState(searchParams.get('stitle') || '');
@@ -501,8 +509,6 @@ function PlayPageClient() {
   // 监听 URL 参数变化，当切换到不同视频时重新加载页面
   useEffect(() => {
     const urlTitle = searchParams.get('title') || '';
-    const urlSource = searchParams.get('source') || '';
-    const urlId = searchParams.get('id') || '';
 
     // 只在切换到不同视频时重新加载页面（title变化）
     // 换源（source/id变化）由播放器自己处理，不需要刷新页面
@@ -2366,6 +2372,7 @@ function PlayPageClient() {
       if (currentSource && currentId) {
         // 先快速获取当前源的详情
         try {
+          // currentSource 已经是完整格式（如 'emby_wumei'）
           const currentSourceDetail = await fetchSourceDetail(currentSource, currentId, searchTitle || videoTitle);
           if (currentSourceDetail.length > 0) {
             detailData = currentSourceDetail[0];
@@ -2415,8 +2422,9 @@ function PlayPageClient() {
           detailData = target;
 
           // 如果是 openlist 或 emby 源且 episodes 为空，需要调用 detail 接口获取完整信息
-          if ((detailData.source === 'openlist' || detailData.source === 'emby') && (!detailData.episodes || detailData.episodes.length === 0)) {
+          if ((detailData.source === 'openlist' || detailData.source === 'emby' || detailData.source.startsWith('emby_')) && (!detailData.episodes || detailData.episodes.length === 0)) {
             console.log('[Play] OpenList/Emby source has no episodes, fetching detail...');
+            // currentSource 已经是完整格式
             const detailSources = await fetchSourceDetail(currentSource, currentId, searchTitle || videoTitle);
             if (detailSources.length > 0) {
               detailData = detailSources[0];
@@ -2437,9 +2445,22 @@ function PlayPageClient() {
         setLoadingStage('preferring');
         setLoadingMessage('⚡ 正在优选最佳播放源...');
 
-        // 过滤掉 openlist 和 emby 源，它们不参与测速
-        const sourcesToTest = sourcesInfo.filter(s => s.source !== 'openlist' && s.source !== 'emby');
-        const excludedSources = sourcesInfo.filter(s => s.source === 'openlist' || s.source === 'emby');
+        // 过滤掉 openlist 和所有 emby 源，它们不参与测速
+        const sourcesToTest = sourcesInfo.filter(s => {
+          // 检查是否为 openlist
+          if (s.source === 'openlist') return false;
+
+          // 检查是否为 emby 源（包括 emby 和 emby_xxx 格式）
+          if (s.source === 'emby' || s.source.startsWith('emby_')) return false;
+
+          return true;
+        });
+
+        const excludedSources = sourcesInfo.filter(s =>
+          s.source === 'openlist' ||
+          s.source === 'emby' ||
+          s.source.startsWith('emby_')
+        );
 
         if (sourcesToTest.length > 0) {
           detailData = await preferBestSource(sourcesToTest);
@@ -2463,6 +2484,7 @@ function PlayPageClient() {
       }
 
       setNeedPrefer(false);
+      // 直接使用 detailData.source（已经是完整格式）
       setCurrentSource(detailData.source);
       setCurrentId(detailData.id);
       setVideoYear(detailData.year);
@@ -2475,12 +2497,12 @@ function PlayPageClient() {
         setCurrentEpisodeIndex(0);
       }
 
-      // 规范URL参数
+      // 规范URL参数（不更新title，避免循环刷新）
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('source', detailData.source);
       newUrl.searchParams.set('id', detailData.id);
       newUrl.searchParams.set('year', detailData.year);
-      newUrl.searchParams.set('title', detailData.title);
+      // 保持原有的 title，不更新
       newUrl.searchParams.delete('prefer');
       window.history.replaceState({}, '', newUrl.toString());
 
@@ -2545,21 +2567,17 @@ function PlayPageClient() {
 
     // 只在URL参数存在且与当前状态不同时才处理
     if (urlSource && urlId && (urlSource !== currentSource || urlId !== currentId)) {
-      console.log('[PlayPage] Detected source/id change from URL:', {
-        urlSource,
-        urlId,
-        currentSource,
-        currentId
-      });
-
       // 检查新的source和id是否在可用源列表中
+      // 如果 availableSources 还是空的，说明数据还在加载中，不做处理
+      if (availableSources.length === 0) {
+        return;
+      }
+
       const targetSource = availableSources.find(
         (source) => source.source === urlSource && source.id === urlId
       );
 
       if (targetSource) {
-        console.log('[PlayPage] Found matching source in available sources, updating...');
-
         // 记录当前播放进度
         const currentPlayTime = artPlayerRef.current?.currentTime || 0;
 
@@ -2567,7 +2585,7 @@ function PlayPageClient() {
         const episodeParam = searchParams.get('episode');
         const targetEpisode = episodeParam ? parseInt(episodeParam, 10) - 1 : 0;
 
-        // 更新视频源信息
+        // 更新视频源信息（urlSource 已经是完整格式）
         setCurrentSource(urlSource);
         setCurrentId(urlId);
         setVideoTitle(targetSource.title);
@@ -2589,7 +2607,6 @@ function PlayPageClient() {
           }
         }
       } else {
-        console.log('[PlayPage] Source not found in available sources, reloading page...');
         // 如果新源不在可用列表中,强制刷新页面重新加载
         window.location.reload();
       }
@@ -2712,7 +2729,7 @@ function PlayPageClient() {
       }
 
       // 如果是 openlist 或 emby 源且 episodes 为空，需要调用 detail 接口获取完整信息
-      if ((newDetail.source === 'openlist' || newDetail.source === 'emby') && (!newDetail.episodes || newDetail.episodes.length === 0)) {
+      if ((newDetail.source === 'openlist' || newDetail.source === 'emby' || newDetail.source.startsWith('emby_')) && (!newDetail.episodes || newDetail.episodes.length === 0)) {
         try {
           const detailResponse = await fetch(`/api/source-detail?source=${newSource}&id=${newId}&title=${encodeURIComponent(newTitle)}`);
           if (detailResponse.ok) {
@@ -2768,6 +2785,7 @@ function PlayPageClient() {
       setVideoYear(newDetail.year);
       setVideoCover(newDetail.poster);
       setVideoDoubanId(newDetail.douban_id || 0);
+      // newSource 已经是完整格式
       setCurrentSource(newSource);
       setCurrentId(newId);
       setDetail(newDetail);
