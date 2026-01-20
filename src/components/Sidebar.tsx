@@ -147,6 +147,11 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
       label: '电视直播',
       href: '/live',
     },
+    {
+      icon: Radio,
+      label: '网络直播',
+      href: '/web-live',
+    },
   ]);
 
   useEffect(() => {
@@ -178,6 +183,11 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
         icon: Radio,
         label: '电视直播',
         href: '/live',
+      },
+      {
+        icon: Radio,
+        label: '网络直播',
+        href: '/web-live',
       },
     ];
 
