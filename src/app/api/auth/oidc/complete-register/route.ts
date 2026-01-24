@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查用户名是否已存在（优先使用新版本）
+    // 检查用户名是否已存在
     const userExists = await db.checkUserExistV2(username);
     if (userExists) {
       return NextResponse.json(
@@ -185,24 +185,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查配置中是否已存在
-    const existingUser = config.UserConfig.Users.find((u) => u.username === username);
-    if (existingUser) {
-      return NextResponse.json(
-        { error: '用户名已存在' },
-        { status: 409 }
-      );
-    }
-
-    // 检查OIDC sub是否已被使用（优先使用新版本）
-    let existingOIDCUsername = await db.getUserByOidcSub(oidcSession.sub);
-    if (!existingOIDCUsername) {
-      // 回退到配置中查找
-      const existingOIDCUser = config.UserConfig.Users.find((u: any) => u.oidcSub === oidcSession.sub);
-      if (existingOIDCUser) {
-        existingOIDCUsername = existingOIDCUser.username;
-      }
-    }
+    // 检查OIDC sub是否已被使用
+    const existingOIDCUsername = await db.getUserByOidcSub(oidcSession.sub);
     if (existingOIDCUsername) {
       return NextResponse.json(
         { error: '该OIDC账号已被注册' },

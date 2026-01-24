@@ -280,15 +280,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
     }
 
-    const config = await getConfig();
-    const user = config.UserConfig.Users.find((u) => u.username === username);
-
-    // 优先使用新版本的用户验证
+    // 使用新版本的用户验证
     let pass = false;
     let userRole: 'owner' | 'admin' | 'user' = 'user';
     let isBanned = false;
 
-    // 尝试使用新版本验证
+    // 验证用户
     const userInfoV2 = await db.getUserInfoV2(username);
 
     if (userInfoV2) {
