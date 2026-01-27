@@ -99,10 +99,17 @@ export function TokenRefreshManager() {
 
     // 拦截 fetch
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      // 跳过刷新 API 本身
+      // 跳过不需要 Token 刷新的 API
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
 
-      if (url.includes('/api/auth/refresh')) {
+      // 跳过：刷新 API、登录、登出、注册等认证相关接口
+      if (
+        url.includes('/api/auth/refresh') ||
+        url.includes('/api/login') ||
+        url.includes('/api/logout') ||
+        url.includes('/api/register') ||
+        url.includes('/api/auth/oidc')
+      ) {
         return originalFetch(input, init);
       }
 
