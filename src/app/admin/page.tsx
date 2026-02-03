@@ -6763,6 +6763,7 @@ const MusicConfigComponent = ({
     OpenListCacheUsername: '',
     OpenListCachePassword: '',
     OpenListCachePath: '/music-cache',
+    OpenListCacheProxyEnabled: true,
   });
 
   // 从配置加载音乐设置
@@ -6777,6 +6778,7 @@ const MusicConfigComponent = ({
         OpenListCacheUsername: config.MusicConfig.OpenListCacheUsername ?? '',
         OpenListCachePassword: config.MusicConfig.OpenListCachePassword ?? '',
         OpenListCachePath: config.MusicConfig.OpenListCachePath ?? '/music-cache',
+        OpenListCacheProxyEnabled: config.MusicConfig.OpenListCacheProxyEnabled ?? true,
       });
     }
   }, [config]);
@@ -7016,6 +7018,42 @@ const MusicConfigComponent = ({
           />
           <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
             音乐缓存在 OpenList 中的存储目录（例如：/music-cache）
+          </p>
+        </div>
+
+        {/* 缓存代理返回开关 */}
+        <div>
+          <div className='flex items-center justify-between'>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+              启用缓存代理返回
+            </label>
+            <button
+              type='button'
+              onClick={() =>
+                setMusicSettings((prev) => ({
+                  ...prev,
+                  OpenListCacheProxyEnabled: !prev.OpenListCacheProxyEnabled,
+                }))
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                musicSettings.OpenListCacheProxyEnabled
+                  ? buttonStyles.toggleOn
+                  : buttonStyles.toggleOff
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full ${
+                  buttonStyles.toggleThumb
+                } transition-transform ${
+                  musicSettings.OpenListCacheProxyEnabled
+                    ? buttonStyles.toggleThumbOn
+                    : buttonStyles.toggleThumbOff
+                }`}
+              />
+            </button>
+          </div>
+          <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+            开启后，如果 OpenList 有缓存，将通过代理方式返回给前端，并设置永久缓存头，提升加载速度
           </p>
         </div>
       </div>

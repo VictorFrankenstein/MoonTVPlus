@@ -553,6 +553,7 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
       OpenListCacheUsername: '',
       OpenListCachePassword: '',
       OpenListCachePath: '/music-cache',
+      OpenListCacheProxyEnabled: true,
     };
   }
 

@@ -126,6 +126,10 @@ async function replaceAudioUrlsWithOpenList(
     return data;
   }
 
+  // 获取配置，检查是否启用缓存代理
+  const config = await getConfig();
+  const cacheProxyEnabled = config?.MusicConfig?.OpenListCacheProxyEnabled ?? true;
+
   // TuneHub 返回的数据结构是 { code: 0, data: { data: [...], total: 1 } }
   // 需要提取内层的 data 数组
   const songsData = data.data.data || data.data;
@@ -143,7 +147,14 @@ async function replaceAudioUrlsWithOpenList(
       const fileResponse = await openListClient.getFile(audioPath);
 
       if (fileResponse.code === 200 && fileResponse.data?.raw_url) {
-        song.url = fileResponse.data.raw_url;
+        // 如果启用缓存代理，返回代理URL；否则返回直接URL
+        if (cacheProxyEnabled) {
+          // 使用代理URL，通过我们的服务器代理OpenList的音频
+          song.url = `/api/music/audio-proxy?platform=${platform}&id=${song.id}&quality=${quality}`;
+        } else {
+          // 直接使用OpenList的raw_url
+          song.url = fileResponse.data.raw_url;
+        }
         song.cached = true;
       } else {
         song.cached = false;

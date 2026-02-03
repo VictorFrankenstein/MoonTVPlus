@@ -247,6 +247,7 @@ export interface AdminConfig {
     OpenListCacheUsername?: string; // OpenList用户名
     OpenListCachePassword?: string; // OpenList密码
     OpenListCachePath?: string; // OpenList缓存目录路径
+    OpenListCacheProxyEnabled?: boolean; // 启用缓存代理返回（默认开启）
   };
 }
 
